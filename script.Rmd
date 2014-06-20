@@ -1,0 +1,102 @@
+Human Activity Recognition
+========================================================
+
+Summary
+---
+Data on human activities are collected to build model that can recognize the good/bac practice of a physical exercice and provide advice for improvement. Human activity recognition research has traditionally focused on discriminating between different activities, i.e. to predict "which" activity was performed at a specific point in time. Velloso et al. (2013) proposed an approach for the Weight Lifting Exercises dataset to investigate "how (well)" an activity was performed by the wearer. Based on their data set a random forest model is built to recognize the "How well" the excercice is performed. The model performs very well and resulted in the following Confusion matrix on the cross validation data set:
+
+```{r echo=FALSE}
+print(cmx$table)
+```
+
+
+Getting and cleaning data
+--------------------------------
+
+- creating data directory
+```{r data_directory_creation, eval=FALSE}
+if(!file.exists("data")){
+  dir.create("data")
+}
+```
+- downloading the training data set
+```{r training_downloading, cache=TRUE, eval=FALSE}
+trainURL = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainFName = paste("data", "pml-training.csv", sep="/")
+download.file( trainURL, trainFName, method="curl" )
+```
+
+- downloading the test data set
+```{r test_downloading, cache=TRUE, eval=FALSE}
+testURL = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testFName = paste("data", "pml-testing.csv", sep="/")
+download.file( testURL, testFName, method="curl" )
+```
+
+- Reading the training data set
+```{r Reading_training_data, cache=TRUE, eval=FALSE}
+dat <- read.csv(trainFName)
+```
+
+Filtering the variable
+---
+The variables used for prediction are limited to the row measurements from the devices:
+- the three-axes accelerationm gyroscope and magnetometer of each device, making a total of 36 variables.
+There are many reasons: The goal of HAR (human activity recognition) studies is to predict activities using sensors; Any variable computed from those primary variable is already described by them. Variables like subject name, windows, etc. can be used for classification not for prediction. No other preprocessing was performed on the data set. The variables used in the training are the following
+```{r echo=FALSE}
+belt <- c("gyros_belt_x", "gyros_belt_y", "gyros_belt_z",            
+         "accel_belt_x", "accel_belt_y", "accel_belt_z",
+         "magnet_belt_x", "magnet_belt_y", "magnet_belt_z")
+arm <- c("gyros_arm_x", "gyros_arm_y", "gyros_arm_z",
+         "accel_arm_x", "accel_arm_y", "accel_arm_z",
+        "magnet_arm_x", "magnet_arm_y", "magnet_arm_z")
+dumbell <- c("gyros_dumbbell_x", "gyros_dumbbell_y", "gyros_dumbbell_z",
+             "accel_dumbbell_x", "accel_dumbbell_y", "accel_dumbbell_z",
+             "magnet_dumbbell_x", "magnet_dumbbell_y", "magnet_dumbbell_z")
+forearm <- c("gyros_forearm_x", "gyros_forearm_y", "gyros_forearm_z",
+             "accel_forearm_x", "accel_forearm_y", "accel_forearm_z",
+              "magnet_forearm_x", "magnet_forearm_y", "magnet_forearm_z")
+c(belt, arm, dumbell, forearm)
+```
+
+Processing: choice of the method
+---
+After few tries, the random forest regression was choosing. It provided the best result: `r 100`% accurary on the training, `r 98.8`% on the cross-validation and `r 100`% the test data sets.
+The model is trained using 70% of the total training data set, i.e.  13737 observations of 36 variables.
+Thr process is done with the following steps
+
+```{r cache=TRUE}
+belt <- c("gyros_belt_x", "gyros_belt_y", "gyros_belt_z",            
+         "accel_belt_x", "accel_belt_y", "accel_belt_z",
+         "magnet_belt_x", "magnet_belt_y", "magnet_belt_z")
+arm <- c("gyros_arm_x", "gyros_arm_y", "gyros_arm_z",
+         "accel_arm_x", "accel_arm_y", "accel_arm_z",
+        "magnet_arm_x", "magnet_arm_y", "magnet_arm_z")
+dumbell <- c("gyros_dumbbell_x", "gyros_dumbbell_y", "gyros_dumbbell_z",
+             "accel_dumbbell_x", "accel_dumbbell_y", "accel_dumbbell_z",
+             "magnet_dumbbell_x", "magnet_dumbbell_y", "magnet_dumbbell_z")
+forearm <- c("gyros_forearm_x", "gyros_forearm_y", "gyros_forearm_z",
+             "accel_forearm_x", "accel_forearm_y", "accel_forearm_z",
+              "magnet_forearm_x", "magnet_forearm_y", "magnet_forearm_z")
+
+namesInt <- c(belt, arm, dumbell, forearm, "classe")
+training <- trainData[, namesInt]
+trainInds <- sample(nrow(training), 13737)
+trainNew <- training[trainInds,]
+crossData <- training[-trainInds,]
+testing <- testData[, c(belt, arm, dumbell, forearm)]
+
+modelFit <- train(trainNew$classe ~ .,method="rf",data=trainNew)
+print("Confusion matrix")
+confusionMatrix( trainNew$classe,predict(modelFit,trainNew) )$table
+cmx <- confusionMatrix( crossData$classe,predict(modelFit,crossData) )
+```
+
+Summary of results on the trainning set
+```{r cache=TRUE,echo=FALSE}
+cmx
+```
+
+References
+---
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
